@@ -1,0 +1,11 @@
+sw5_openapi_interface_generator	1
+
+description
+	OpenAPI magik interface generator for SW5
+end
+
+requires_java
+	com.gesmallworld.magik.http
+end
+
+language en_gb

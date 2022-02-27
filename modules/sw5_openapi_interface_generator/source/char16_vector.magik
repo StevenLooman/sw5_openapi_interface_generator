@@ -1,0 +1,31 @@
+#% text_encoding = iso8859_1
+_package user
+
+# Extras
+# From: https://github.com/StevenLooman/sw_xsd_loader/blob/master/xsd_loader/source/char16_vector.magik
+_pragma(classify_level=basic, topic={xsd_loader, xsd})
+_method char16_vector.as_snake_case()
+	## Convert self to snake_case.
+	## @return {_self}
+	_if _self.size < 2
+	_then
+		_return _self.lowercase
+	_endif
+
+	_local str << _self
+
+	_local regex << /([A-Z]+)([A-Z][a-z])/
+	str << regex.replace_all(str, "$1_$2")
+
+	regex << /([a-z\d])([A-Z])/
+	str << regex.replace_all(str, "$1_$2")
+
+	regex << /-/
+	str << regex.replace_all(str, "_")
+
+	regex << /__/
+	str << regex.replace_all(str, "_")
+
+	_return str.lowercase
+_endmethod
+$

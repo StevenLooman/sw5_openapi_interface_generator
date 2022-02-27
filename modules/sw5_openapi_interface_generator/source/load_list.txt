@@ -1,0 +1,4 @@
+conditions
+char16_vector
+openapi_interface_base
+openapi_interface_generator

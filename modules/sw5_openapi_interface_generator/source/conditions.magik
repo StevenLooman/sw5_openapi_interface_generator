@@ -1,0 +1,7 @@
+#% text_encoding = iso8859_1
+_package user
+
+_block
+	sw:condition.define_condition(:openapi_interface_response_error, :error, {:status_code, :body})
+_endblock
+$

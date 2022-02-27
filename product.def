@@ -1,0 +1,9 @@
+sw5_openapi_interface_generator layered_product
+version 0.0.1
+
+title
+	OpenAPI Magik interface generator for SW5
+end
+
+requires
+end

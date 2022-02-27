@@ -1,0 +1,170 @@
+#% text_encoding = iso8859_1
+_package user
+
+_pragma(classify_level=advanced, topic={api})
+##
+## Base exemplar for generated APIs from `openapi_interface_generator` script.
+##
+def_slotted_exemplar(
+	:openapi_interface_base,
+	{
+	},
+	{})
+$
+
+_pragma(classify_level=advanced, topic={api})
+## @return {sw:predicate}
+openapi_interface_base.define_shared_constant(
+	:uuid_predicate,
+	predicate.wild(:yourself, '????????-????-????-????-????????????'),
+	:private)
+$
+
+_pragma(classify_level=advanced, topic={api})
+## @return {sw:predicate}
+openapi_interface_base.define_shared_constant(
+	:date_time_predicate,
+	_not predicate,  # XXX TODO
+	:private)
+$
+
+_pragma(classify_level=advanced, topic={api})
+_abstract _private _method openapi_interface_base.base_path
+	## Get base path. To be overridden by a shared_constant.
+	## @return {sw:char16_vector}
+_endmethod
+$
+
+_pragma(classify_level=advanced, topic={api})
+_private _method openapi_interface_base.parse_string(value, _optional validator)
+	## Parse a `string` value.
+	## @param {sw:char16_vector} value
+	## @param {sw:predicate} validator
+	## @return {sw:char16_vector}
+	_local actual_value << sw:char16_vector.check_type(value)
+	_if validator _isnt _unset _andif
+	    _not validator.test?(actual_value)
+	_then
+		sw:condition.raise(:error, :string, "Validator error")
+	_endif
+	_return actual_value
+_endmethod
+$
+
+_pragma(classify_level=advanced, topic={api})
+_private _method openapi_interface_base.parse_integer(value, _optional validator)
+	## Parse a `integer` value.
+	## @param {sw:integer} value
+	## @param {sw:predicate} validator
+	## @return {sw:integer}
+	_local actual_value << sw:integer.check_type(value)
+	_if validator _isnt _unset _andif
+	    _not validator.test?(actual_value)
+	_then
+		sw:condition.raise(:error, :string, "Validator error")
+	_endif
+	_return actual_value
+_endmethod
+$
+
+_pragma(classify_level=advanced, topic={api})
+_private _method openapi_interface_base.parse_number(value, _optional validator)
+	## Parse a `number` value.
+	## @param {sw:float} value
+	## @param {sw:predicate} validator
+	## @return {sw:float}
+	_local actual_value << sw:float.check_type(value)
+	_if validator _isnt _unset _andif
+	    _not validator.test?(actual_value)
+	_then
+		sw:condition.raise(:error, :string, "Validator error")
+	_endif
+	_return actual_value
+_endmethod
+$
+
+_pragma(classify_level=advanced, topic={api})
+_private _method openapi_interface_base.parse_boolean(value, _optional validator)
+	## Parse a `boolean` value.
+	## @param {sw:false} value
+	## @param {sw:predicate} validator
+	## @return {sw:false}
+	_local actual_value << sw:false.check_type(value)
+	_if validator _isnt _unset _andif
+	    _not validator.test?(actual_value)
+	_then
+		sw:condition.raise(:error, :string, "Validator error")
+	_endif
+	_return actual_value
+_endmethod
+$
+
+_pragma(classify_level=advanced, topic={api})
+_private _method openapi_interface_base.build_uri(base_uri, path_params, query_params)
+	## Build URI from parts.
+	## @param {sw:char16_vector} base_uri
+	## @param {sw:equality_hash_table} path_params
+	## @param {sw:equality_hash_table} query_params
+	## @return {sw:char16_vector}
+	_local uri << base_uri
+
+	_for key, value _over path_params.fast_keys_and_elements()
+	_loop
+		uri << sw_regexp.new("\{" + key + "}").replace_all(uri, value)
+	_endloop
+
+	_local query_items << rope.new()
+	_for key, value _over query_params.fast_keys_and_elements()
+	_loop
+		_local query_item << write_string(key, "=", value)
+		query_items.add(query_item)
+	_endloop
+	_if _not query_items.empty?
+	_then
+		uri << uri + "?" + query_items.join_as_strings("&")
+	_endif
+
+	_return _self.base_path + uri
+_endmethod
+$
+
+_pragma(classify_level=advanced, topic={api})
+_private _method openapi_interface_base.get_headers(method, uri)
+	## Get headers for method/uri.
+	## @param {sw:char16_vector} method
+	## @param {sw:char16_vector} uri
+	## @return {sw:equality_property_list}
+	_local headers << sw:equality_property_list.new()
+	headers["Accept"] << "application/json"
+	_return headers
+_endmethod
+$
+
+_pragma(classify_level=advanced, topic={api})
+_private _method openapi_interface_base.do_request(method, uri, headers, _optional body)
+	## Fire a request.
+	## @param {sw:char16_vector} method HTTP Method.
+	## @param {sw:char16_vector} uri URI to call.
+	## @param {sw:equality_property_list} headers Headers to send.
+	## @param {sw:equality_property_list} body Body to send.
+	## @return {sw:char16_vector} Response body.
+	## @return {sw:http} http thing.
+	_local magik_http << http.new(uri)
+	_local request_headers << rope.new()
+	_for key, value _over headers.fast_keys_and_elements()
+	_loop
+		_local pair << {key, value}
+		request_headers.add_last(pair)
+	_endloop
+	_local response_body << magik_http.perform(method.lowercase + :|()|, request_headers)
+	_local response_status_code << magik_http.status_code
+	_if response_status_code _div 100 <> 2
+	_then
+		condition.raise(
+			:api_response_error,
+			:status_code, response_status_code,
+			:body, response_body)
+	_endif
+	_return response_body, magik_http
+_endmethod
+$
