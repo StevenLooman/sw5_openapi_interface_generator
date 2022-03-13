@@ -1,4 +1,5 @@
 conditions
 char16_vector
+openapi_validator_mixin
 openapi_interface_base
 openapi_interface_generator

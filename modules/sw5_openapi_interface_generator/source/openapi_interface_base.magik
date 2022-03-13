@@ -9,93 +9,13 @@ def_slotted_exemplar(
 	:openapi_interface_base,
 	{
 	},
-	{})
+	{@user:openapi_validator_mixin})
 $
 
 _pragma(classify_level=advanced, topic={api})
-## @return {sw:predicate}
-openapi_interface_base.define_shared_constant(
-	:uuid_predicate,
-	predicate.wild(:yourself, '????????-????-????-????-????????????'),
-	:private)
-$
-
-_pragma(classify_level=advanced, topic={api})
-## @return {sw:predicate}
-openapi_interface_base.define_shared_constant(
-	:date_time_predicate,
-	_not predicate,  # XXX TODO
-	:private)
-$
-
-_pragma(classify_level=advanced, topic={api})
-_abstract _private _method openapi_interface_base.base_path
-	## Get base path. To be overridden by a shared_constant.
+_abstract _private _method openapi_interface_base.api_base_path
+	## Get API base path. To be overridden by a shared_constant.
 	## @return {sw:char16_vector}
-_endmethod
-$
-
-_pragma(classify_level=advanced, topic={api})
-_private _method openapi_interface_base.parse_string(value, _optional validator)
-	## Parse a `string` value.
-	## @param {sw:char16_vector} value
-	## @param {sw:predicate} validator
-	## @return {sw:char16_vector}
-	_local actual_value << sw:char16_vector.check_type(value)
-	_if validator _isnt _unset _andif
-	    _not validator.test?(actual_value)
-	_then
-		sw:condition.raise(:error, :string, "Validator error")
-	_endif
-	_return actual_value
-_endmethod
-$
-
-_pragma(classify_level=advanced, topic={api})
-_private _method openapi_interface_base.parse_integer(value, _optional validator)
-	## Parse a `integer` value.
-	## @param {sw:integer} value
-	## @param {sw:predicate} validator
-	## @return {sw:integer}
-	_local actual_value << sw:integer.check_type(value)
-	_if validator _isnt _unset _andif
-	    _not validator.test?(actual_value)
-	_then
-		sw:condition.raise(:error, :string, "Validator error")
-	_endif
-	_return actual_value
-_endmethod
-$
-
-_pragma(classify_level=advanced, topic={api})
-_private _method openapi_interface_base.parse_number(value, _optional validator)
-	## Parse a `number` value.
-	## @param {sw:float} value
-	## @param {sw:predicate} validator
-	## @return {sw:float}
-	_local actual_value << sw:float.check_type(value)
-	_if validator _isnt _unset _andif
-	    _not validator.test?(actual_value)
-	_then
-		sw:condition.raise(:error, :string, "Validator error")
-	_endif
-	_return actual_value
-_endmethod
-$
-
-_pragma(classify_level=advanced, topic={api})
-_private _method openapi_interface_base.parse_boolean(value, _optional validator)
-	## Parse a `boolean` value.
-	## @param {sw:false} value
-	## @param {sw:predicate} validator
-	## @return {sw:false}
-	_local actual_value << sw:false.check_type(value)
-	_if validator _isnt _unset _andif
-	    _not validator.test?(actual_value)
-	_then
-		sw:condition.raise(:error, :string, "Validator error")
-	_endif
-	_return actual_value
 _endmethod
 $
 
@@ -110,7 +30,8 @@ _private _method openapi_interface_base.build_uri(base_uri, path_params, query_p
 
 	_for key, value _over path_params.fast_keys_and_elements()
 	_loop
-		uri << sw_regexp.new("\{" + key + "}").replace_all(uri, value)
+		_local pattern << write_string("\{", key, "}")
+		uri << sw_regexp.new(pattern).replace_all(uri, value.write_string)
 	_endloop
 
 	_local query_items << rope.new()
@@ -124,7 +45,7 @@ _private _method openapi_interface_base.build_uri(base_uri, path_params, query_p
 		uri << uri + "?" + query_items.join_as_strings("&")
 	_endif
 
-	_return _self.base_path + uri
+	_return _self.api_base_path + uri
 _endmethod
 $
 

@@ -1,0 +1,9 @@
+#% text_encoding = iso8859_1
+_package user
+
+_block
+	_local path << system.pathname_up(!source_file!)
+	smallworld_product.add_product(path)
+	sw_module_manager.load_module(:sw5_openapi_interface_generator)
+_endblock
+$

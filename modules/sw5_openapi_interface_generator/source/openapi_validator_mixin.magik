@@ -1,0 +1,117 @@
+#% text_encoding = iso8859_1
+_package user
+
+_pragma(classify_level=advanced, topic={api})
+##
+## Mixin for validating input data for the generated OpenAPI interfaces.
+##
+def_mixin(:openapi_validator_mixin)
+$
+
+_pragma(classify_level=advanced, topic={api})
+## @return {sw:predicate}
+openapi_validator_mixin.define_shared_constant(
+	:uuid_predicate,
+	predicate.wild(:yourself, '????????-????-????-????-????????????'),
+	:private)
+$
+
+_pragma(classify_level=advanced, topic={api})
+## @return {sw:predicate}
+openapi_validator_mixin.define_shared_constant(
+	:date_predicate,
+	predicate.wild(:yourself, "????-??-??"),
+	:private)
+$
+
+_pragma(classify_level=advanced, topic={api})
+## @return {sw:predicate}
+openapi_validator_mixin.define_shared_constant(
+	:date_time_predicate,
+	predicate.wild(:yourself, "????-??-??T??:??:??*"),
+	:private)
+$
+
+_pragma(classify_level=advanced, topic={api})
+_private _method openapi_validator_mixin.validate_string(value, _optional validator)
+	## Parse a `string` value.
+	## @param {sw:char16_vector} value
+	## @param {sw:predicate} validator
+	## @return {sw:char16_vector}
+	_local actual_value << sw:char16_vector.check_type(value)
+	_if validator _isnt _unset _andif
+	    _not validator.test?(actual_value)
+	_then
+		sw:condition.raise(:error, :string, "Validator error")
+	_endif
+	_return actual_value
+_endmethod
+$
+
+_pragma(classify_level=advanced, topic={api})
+_private _method openapi_validator_mixin.validate_integer(value, _optional validator)
+	## Parse a `integer` value.
+	## @param {sw:integer} value
+	## @param {sw:predicate} validator
+	## @return {sw:integer}
+	_local actual_value << sw:integer.check_type(value)
+	_if validator _isnt _unset _andif
+	    _not validator.test?(actual_value)
+	_then
+		sw:condition.raise(:error, :string, "Validator error")
+	_endif
+	_return actual_value
+_endmethod
+$
+
+_pragma(classify_level=advanced, topic={api})
+_private _method openapi_validator_mixin.validate_number(value, _optional validator)
+	## Parse a `number` value.
+	## @param {sw:float} value
+	## @param {sw:predicate} validator
+	## @return {sw:float}
+	_local actual_value << sw:float.check_type(value)
+	_if validator _isnt _unset _andif
+	    _not validator.test?(actual_value)
+	_then
+		sw:condition.raise(:error, :string, "Validator error")
+	_endif
+	_return actual_value
+_endmethod
+$
+
+_pragma(classify_level=advanced, topic={api})
+_private _method openapi_validator_mixin.validate_boolean(value, _optional validator)
+	## Parse a `boolean` value.
+	## @param {sw:false} value
+	## @param {sw:predicate} validator
+	## @return {sw:false}
+	_local actual_value << sw:false.check_type(value)
+	_if validator _isnt _unset _andif
+	    _not validator.test?(actual_value)
+	_then
+		sw:condition.raise(:error, :string, "Validator error")
+	_endif
+	_return actual_value
+_endmethod
+$
+
+_pragma(classify_level=advanced, topic={api})
+_private _method openapi_validator_mixin.validate_array(value, _optional validator)
+	## Parse an `array` value.
+	## @param {sw:rope} value
+	## @param {sw:predicate} validator
+	## @return {sw:rope}
+	_return value
+_endmethod
+$
+
+_pragma(classify_level=advanced, topic={api})
+_private _method openapi_validator_mixin.validate_object(value, _optional validator)
+	## Parse an `object` value.
+	## @param {sw:equality_property_list} value
+	## @param {sw:predicate} validator
+	## @return {sw:equality_property_list}
+	_return value
+_endmethod
+$
