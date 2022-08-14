@@ -67,7 +67,7 @@ _private _method openapi_interface_base.do_request(method, uri, headers, _option
 	## @param {sw:char16_vector} method HTTP Method.
 	## @param {sw:char16_vector} uri URI to call.
 	## @param {sw:equality_property_list} headers Headers to send.
-	## @param {sw:equality_property_list} body Body to send.
+	## @param {sw:char16_vector|sw:equality_property_list|sw:unset} body Body to send.
 	## @return {sw:char16_vector} Response body.
 	## @return {sw:http} http thing.
 	_local magik_http << http.new(uri)
@@ -77,6 +77,22 @@ _private _method openapi_interface_base.do_request(method, uri, headers, _option
 		_local pair << {key, value}
 		request_headers.add_last(pair)
 	_endloop
+	_local payload <<
+		_if body _is _unset
+		_then
+			>> _unset
+		_elif body.is_kind_of?(sw:char16_vector)
+		_then
+			# Raw data.
+			>> body
+		_elif body.responds_to?(:|to_api()|)
+		_then
+			_local encoder << sw:json_encoder.new()
+			>> encoder.generate_string(body.to_api())
+		_else
+			_local encoder << sw:json_encoder.new()
+			>> encoder.generate_string(body)
+		_endif
 	_local response_body << magik_http.perform(method.lowercase + :|()|, request_headers)
 	_local response_status_code << magik_http.status_code
 	_if response_status_code _div 100 <> 2

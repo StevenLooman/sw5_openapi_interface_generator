@@ -26,24 +26,24 @@ $
 
 _pragma(classify_level=advanced, topic={openapi})
 ## Type mapping, from OpenAPI to Smallworld.
-## @return {sw:equality_property_list}
+## @return {sw:concurrent_hash_map}
 openapi_interface_generator.define_shared_constant(
 	:type_mapping,
-	sw:equality_property_list.new_with(
+	sw:concurrent_hash_map.new_with(
 		"string", sw:char16_vector,
 		"integer", sw:integer,
 		"boolean", sw:false,
 		"array", sw:rope,
-		"object", sw:equality_property_list),
+		"object", sw:concurrent_hash_map),
 	:private)
 $
 
 _pragma(classify_level=advanced, topic={openapi})
 ## Format validators.
-## @return {sw:equality_property_list}
+## @return {sw:concurrent_hash_map}
 openapi_interface_generator.define_shared_constant(
 	:format_validators,
-	sw:equality_property_list.new_with(
+	sw:concurrent_hash_map.new_with(
 		"uuid", "_self.uuid_predicate",
 		"date", "_self.date_predicate",
 		"date-time", "_self.date_time_predicate"),
@@ -56,6 +56,15 @@ _pragma(classify_level=advanced, topic={openapi})
 openapi_interface_generator.define_shared_constant(
 	:package_name,
 	"user",
+	:private)
+$
+
+_pragma(classify_level=advanced, topic={openapi})
+## Package name.
+## @return {sw:char16_vector}
+openapi_interface_generator.define_shared_constant(
+	:api_object_base,
+	"@user:openapi_interface_base",
 	:private)
 $
 
@@ -155,7 +164,7 @@ _private _method openapi_interface_generator.generate_exemplar()
 	.output_stream.write("	:", .exemplar_name, ",", sw:character.newline)
 	.output_stream.write("	{", sw:character.newline)
 	.output_stream.write("	},", sw:character.newline)
-	.output_stream.write("	{@user:openapi_interface_base})", sw:character.newline)
+	.output_stream.write("	{", _self.api_object_base, "})", sw:character.newline)
 	.output_stream.write("$", sw:character.newline)
 	.output_stream.write(character.newline)
 _endmethod
@@ -179,10 +188,10 @@ $
 _pragma(classify_level=advanced, topic={openapi})
 _private _method openapi_interface_generator.generate_operations()
 	## Generate methods from operations.
-	_local paths << sw:property_list.new_from(.api_specs[:paths]).sorted_by_key()
-	_for path, op_spec _over paths.fast_keys_and_elements()
+	_local paths << sw:property_list.new_from(.api_specs[:paths])
+	_for path, op_spec _over paths.sorted_by_key().fast_keys_and_elements()
 	_loop
-		_for method, spec _over op_spec.fast_keys_and_elements()
+		_for method, spec _over sw:property_list.new_from(op_spec).sorted_by_key().fast_keys_and_elements()
 		_loop
 			# Method start.
 			_local spec_operation_id << spec[:|operationId|]
@@ -213,7 +222,7 @@ _private _method openapi_interface_generator.generate_operations()
 			.output_stream.write("	## Operation ID: ", spec_operation_id, sw:character.newline)
 			.output_stream.write("	## URL: ", method.write_string.uppercase, " ", path, sw:character.newline)
 			.output_stream.write("	## Tags: ", spec[:tags].join_as_strings(", "), sw:character.newline)
-			_for spec_parameter _over spec_parameters.fast_elements()
+			_for spec_parameter _over spec_parameters.sorted_by_key().fast_elements()
 			_loop
 				_local parameter_name << map_parameter_name(spec_parameter)
 				_local parameter_type << _self.get_parameter_type(spec_parameter)
@@ -245,8 +254,8 @@ _private _method openapi_interface_generator.generate_method_body(path, method, 
 	## @param {sw:symbol} path
 	## @param {sw:symbol} method
 	## @param {sw:hash_table} spec
-	.output_stream.write("	_local path_parameters << sw:equality_property_list.new()", sw:character.newline)
-	.output_stream.write("	_local query_parameters << sw:equality_property_list.new()", sw:character.newline)
+	.output_stream.write("	_local path_parameters << sw:concurrent_hash_map.new()", sw:character.newline)
+	.output_stream.write("	_local query_parameters << sw:concurrent_hash_map.new()", sw:character.newline)
 
 	# Validate + record parameters.
 	_self.generate_parameter_validation(spec)
@@ -269,9 +278,12 @@ _private _method openapi_interface_generator.generate_parse_result(spec)
 	.output_stream.write("	_local decoder << sw:json_decoder.new()", sw:character.newline)
 	.output_stream.write("	_local json << decoder.parse_string(response_body)", sw:character.newline)
 	_local spec_responses << spec[:|responses|]
-	_if spec_responses.includes_key?(:|200|)
+	_if (spec_responses.includes_key?(:|200|) _andif
+	     spec_responses[:|200|].includes_key?(:|content|)) _orif
+	    (spec_responses.includes_key?(:|201|) _andif
+	     spec_responses[:|201|].includes_key?(:|content|))
 	_then
-		_local spec_response_200 << spec_responses[:|200|]
+		_local spec_response_200 << spec_responses[:|200|].default(spec_responses[:|201|])
 		_local spec_content << spec_response_200[:|content|]
 		_local spec_mime_type << spec_content[:|application/json|].default(spec_content[:|*/*|])
 		_local spec_schema << spec_mime_type[:|schema|]
@@ -315,7 +327,7 @@ _private _method openapi_interface_generator.generate_parameter_validation(spec)
 	## Generate validation of parameters.
 	## @param {sw:hash_table} spec
 	_local spec_parameters << spec[:parameters].default({})
-	_for spec_parameter _over spec_parameters.fast_elements()
+	_for spec_parameter _over spec_parameters.sorted_by_key().fast_elements()
 	_loop
 		# Currently only query/path parameters are supported, and
 		# only supports primitives as input parameters.
@@ -393,8 +405,8 @@ _pragma(classify_level=advanced, topic={openapi})
 _private _method openapi_interface_generator.generate_schema_exemplars()
 	## Generate exemplars from schemas.
 	_local components << .api_specs[:components].default(sw:property_list.new())
-	_local schemas << sw:property_list.new_from(components[:schemas].default(sw:property_list.new())).sorted_by_key()
-	_for name, spec _over schemas.fast_keys_and_elements()
+	_local schemas << sw:property_list.new_from(components[:schemas].default(sw:property_list.new()))
+	_for name, spec _over schemas.sorted_by_key().fast_keys_and_elements()
 	_loop
 		_local filename << write_string(name.write_string.as_snake_case(), ".magik")
 		_local path << system.pathname_down(.target_path, filename)
@@ -436,8 +448,12 @@ _private _method openapi_interface_generator.generate_schema_exemplar_object(nam
 	## Generate a examplar from a object-schema.
 	## @param {sw:char16_vector} name
 	## @param {sw:hash_table} spec
-	_local properties << sw:property_list.new_from(spec[:properties]).sorted_by_key()
-	_local magik_property_names << properties.keys.map(_proc(api_name) _return api_name.write_string.as_snake_case() _endproc)
+	_local properties << sw:property_list.new_from(spec[:properties])
+	_local magik_property_names << properties.sorted_by_key().keys.map(
+		_proc(api_name)
+			## @param {sw:char16_vector} api_name
+			_return api_name.write_string.as_snake_case()
+		_endproc)
 	_local exemplar_name << name.write_string.as_snake_case()
 	_local requireds << sw:equality_set.new_from(spec[:required].default({}))
 
@@ -446,7 +462,7 @@ _private _method openapi_interface_generator.generate_schema_exemplar_object(nam
 	.output_stream.write("##", sw:character.newline)
 	.output_stream.write("## Schema: ", name, sw:character.newline)
 	.output_stream.write("##", sw:character.newline)
-	_for name, spec _over properties.fast_keys_and_elements()
+	_for name, spec _over properties.sorted_by_key().fast_keys_and_elements()
 	_loop
 		_local magik_name << name.write_string.as_snake_case()
 		_local spec_type << spec[:type]
@@ -466,7 +482,7 @@ _private _method openapi_interface_generator.generate_schema_exemplar_object(nam
 	.output_stream.write("	:", exemplar_name, ",", sw:character.newline)
 	.output_stream.write("	{", sw:character.newline)
 	_local slot_defs << rope.new()
-	_for name _over properties.fast_keys()
+	_for name _over properties.sorted_by_key().fast_keys()
 	_loop
 		_local magik_name << name.write_string.as_snake_case()
 		_local slot_def << write_string("		{:", magik_name, ", _unset, :readable, :public}")
@@ -482,10 +498,10 @@ _private _method openapi_interface_generator.generate_schema_exemplar_object(nam
 	.output_stream.write("_pragma(classify_level=advanced, topic={openapi})", sw:character.newline)
 	.output_stream.write("_method ", exemplar_name, ".new_from_api(props)", sw:character.newline)
 	.output_stream.write("	## Constructor.", sw:character.newline)
-	.output_stream.write("	## @param {sw:equality_property_list} props", sw:character.newline)
+	.output_stream.write("	## @param {sw:concurrent_hash_map} props", sw:character.newline)
 	.output_stream.write("	## @return {_self}", sw:character.newline)
 	_local magik_names << rope.new()
-	_for name, spec _over properties.fast_keys_and_elements()
+	_for name, spec _over properties.sorted_by_key().fast_keys_and_elements()
 	_loop
 		_local magik_name << name.write_string.as_snake_case()
 		_local property_name << write_string("props[:|", name, "|]")
@@ -506,7 +522,7 @@ _private _method openapi_interface_generator.generate_schema_exemplar_object(nam
 			_then
 				_local ref << spec_items[:|$ref|]
 				_local ref_name << ref.split_by(%/).last.as_snake_case()
-				.output_stream.write("	_local ", magik_name, " << ", property_name, ".map(_proc(obj) _return ", ref_name, ".new_from_api(obj) _endproc)", sw:character.newline)
+				.output_stream.write("	_local ", magik_name, " << ", property_name, ".map(_proc(obj) _return ", _self.package_name, ":", ref_name, ".new_from_api(obj) _endproc)", sw:character.newline)
 			_else
 				.output_stream.write("	_local ", magik_name, " << ", property_name, sw:character.newline)
 			_endif
@@ -525,7 +541,7 @@ _private _method openapi_interface_generator.generate_schema_exemplar_object(nam
 	.output_stream.write("_pragma(classify_level=advanced, topic={openapi})", sw:character.newline)
 	.output_stream.write("_method ", exemplar_name, ".new(", magik_property_names.join_as_strings(", "), ")", sw:character.newline)
 	.output_stream.write("	## Constructor.", sw:character.newline)
-	_for name, spec _over properties.fast_keys_and_elements()
+	_for name, spec _over properties.sorted_by_key().fast_keys_and_elements()
 	_loop
 		_local magik_name << name.write_string.as_snake_case()
 		_local spec_type << spec[:type]
@@ -550,7 +566,7 @@ _private _method openapi_interface_generator.generate_schema_exemplar_object(nam
 	.output_stream.write("_pragma(classify_level=advanced, topic={openapi})", sw:character.newline)
 	.output_stream.write("_method ", exemplar_name, ".init(", magik_property_names.join_as_strings(", "), ")", sw:character.newline)
 	.output_stream.write("	## Initializer.", sw:character.newline)
-	_for name, spec _over properties.fast_keys_and_elements()
+	_for name, spec _over properties.sorted_by_key().fast_keys_and_elements()
 	_loop
 		_local magik_name << name.write_string.as_snake_case()
 		_local spec_type << spec[:type]
@@ -566,7 +582,7 @@ _private _method openapi_interface_generator.generate_schema_exemplar_object(nam
 		.output_stream.write("	## @param {", magik_type, "} ", magik_name, sw:character.newline)
 	_endloop
 	.output_stream.write("	## @return {_self}", sw:character.newline)
-	_for name, spec _over properties.fast_keys_and_elements()
+	_for name, spec _over properties.sorted_by_key().fast_keys_and_elements()
 	_loop
 		_local magik_name << name.write_string.as_snake_case()
 		_local mandatory? << requireds.includes?(name)
@@ -637,13 +653,13 @@ _private _method openapi_interface_generator.generate_schema_exemplar_object(nam
 	.output_stream.write("_pragma(classify_level=advanced, topic={openapi})", sw:character.newline)
 	.output_stream.write("_method ", exemplar_name, ".to_api()", sw:character.newline)
 	.output_stream.write("	## Convert self to API.", sw:character.newline)
-	.output_stream.write("	## @return {sw:equality_property_list}", sw:character.newline)
-	.output_stream.write("	_return sw:equality_property_list.new_with(", sw:character.newline)
+	.output_stream.write("	## @return {sw:concurrent_hash_map}", sw:character.newline)
+	.output_stream.write("	_return sw:concurrent_hash_map.new_with(", sw:character.newline)
 	_local api_props << rope.new()
-	_for name _over properties.fast_keys()
+	_for name _over properties.sorted_by_key().fast_keys()
 	_loop
 		_local magik_name << name.write_string.as_snake_case()
-		_local api_prop << write_string("		:|", name, "|, .", magik_name)
+		_local api_prop << write_string("		:|", name, "|, _self.convert_to_json(.", magik_name, ")")
 		api_props.add(api_prop)
 	_endloop
 	.output_stream.write(api_props.join_as_strings("," + sw:character.newline) + ")", character.newline)
@@ -796,7 +812,7 @@ _private _method openapi_interface_generator.get_schema_validator(schema)
 	_elif schema[:enum] _isnt _unset
 	_then
 		_local values << schema[:enum].map(_proc(val) _return val.print_string _endproc)
-		validator << write_string("predicate.in(:yourself, {", values.join_as_strings(","), "})")
+		validator << write_string("sw:predicate.in(:yourself, {", values.join_as_strings(","), "})")
 	_elif schema[:items] _isnt _unset
 	_then
 		# This is handled elsewhere.

@@ -115,3 +115,27 @@ _private _method openapi_validator_mixin.validate_object(value, _optional valida
 	_return value
 _endmethod
 $
+
+_pragma(classify_level=advanced, topic={api})
+_private _method openapi_validator_mixin.convert_to_api(value)
+	## Convert `value` to JSON serialisable.
+	## @param {sw:object} value
+	## @return {sw:object}
+	_if value.is_kind_of?(sw:keys_and_elements_mixin)
+	_then
+		_local res << value.new(value.size)
+		_for key, val _over value.fast_keys_and_elements()
+		_loop
+			res[key] << _self.convert_to_json(val)
+		_endloop
+		_return res
+	_endif
+
+	_if value.responds_to?(:to_api|()|)
+	_then
+		_return value.to_api()
+	_endif
+
+	_return value
+_endmethod
+$
