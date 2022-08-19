@@ -10,7 +10,7 @@ _pragma(classify_level=advanced, topic={openapi})
 ## @slot {sw:char16_vector} exemplar_name
 ## @slot {sw:char16_vector} target_path
 ## @slot {sw:hash_table} api_specs
-## @slot {sw:text_buffered_output_stream} output_stream
+## @slot {sw:external_text_output_stream} output_stream
 ##
 def_slotted_exemplar(
 	:openapi_interface_generator,
@@ -222,7 +222,7 @@ _private _method openapi_interface_generator.generate_operations()
 			.output_stream.write("	## Operation ID: ", spec_operation_id, sw:character.newline)
 			.output_stream.write("	## URL: ", method.write_string.uppercase, " ", path, sw:character.newline)
 			.output_stream.write("	## Tags: ", spec[:tags].join_as_strings(", "), sw:character.newline)
-			_for spec_parameter _over spec_parameters.sorted_by_key().fast_elements()
+			_for spec_parameter _over spec_parameters.fast_elements()
 			_loop
 				_local parameter_name << map_parameter_name(spec_parameter)
 				_local parameter_type << _self.get_parameter_type(spec_parameter)
@@ -327,7 +327,7 @@ _private _method openapi_interface_generator.generate_parameter_validation(spec)
 	## Generate validation of parameters.
 	## @param {sw:hash_table} spec
 	_local spec_parameters << spec[:parameters].default({})
-	_for spec_parameter _over spec_parameters.sorted_by_key().fast_elements()
+	_for spec_parameter _over spec_parameters.fast_elements()
 	_loop
 		# Currently only query/path parameters are supported, and
 		# only supports primitives as input parameters.
@@ -782,7 +782,7 @@ _pragma(classify_level=advanced, topic={openapi})
 _private _method openapi_interface_generator.create_output_stream(filename)
 	## Create a new output stream.
 	## @param {sw:char16_vector} filename
-	## @return {sw:text_buffered_output_stream}
+	## @return {sw:external_text_output_stream}
 	_return sw:external_text_output_stream.new(filename)
 _endmethod
 $
