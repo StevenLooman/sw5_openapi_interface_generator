@@ -236,6 +236,30 @@ _private _method openapi_interface_generator.generate_operations()
 				.output_stream.write("	## @param {", _self.package_name, ":", schema_name, "} request_body Schema: ", schema_name, sw:character.newline)
 			_endif
 
+			_local response_types << sw:equality_set.new()
+			_local spec_responses << sw:property_list.new_from(spec[:|responses|])
+			_for spec_response _over spec_responses.sorted_by_key().fast_elements()
+			_loop
+				_if spec_response.includes_key?(:|content|)
+				_then
+					_local spec_content << spec_response[:|content|]
+					_local spec_mime_type << spec_content[:|application/json|].default(spec_content[:|*/*|])
+					_local spec_schema << spec_mime_type[:|schema|]
+					_if spec_schema.includes_key?(:|$ref|)
+					_then
+						_local ref << spec_schema[:|$ref|]
+						_local schema_name << write_string(_self.package_name, ":", ref.split_by(%/).last.as_snake_case())
+						response_types.add(schema_name)
+					_elif spec_schema[:|type|] = "array"
+					_then
+						response_types.add("sw:rope")
+					_else
+						response_types.add("sw:unset")
+					_endif
+				_endif
+			_endloop
+			.output_stream.write("	## @return {", response_types.as_sorted_collection().join_as_strings("|"), "}", sw:character.newline)
+
 			# Method body.
 			_self.generate_method_body(path, method, spec)
 
@@ -276,39 +300,44 @@ _private _method openapi_interface_generator.generate_parse_result(spec)
 	## Generate parse result.
 	## @param {sw:equality_property_list} spec
 	.output_stream.write("	_local decoder << sw:json_decoder.new()", sw:character.newline)
-	.output_stream.write("	_local json << decoder.parse_string(response_body)", sw:character.newline)
-	_local spec_responses << spec[:|responses|]
-	_if (spec_responses.includes_key?(:|200|) _andif
-	     spec_responses[:|200|].includes_key?(:|content|)) _orif
-	    (spec_responses.includes_key?(:|201|) _andif
-	     spec_responses[:|201|].includes_key?(:|content|))
-	_then
-		_local spec_response_200 << spec_responses[:|200|].default(spec_responses[:|201|])
-		_local spec_content << spec_response_200[:|content|]
-		_local spec_mime_type << spec_content[:|application/json|].default(spec_content[:|*/*|])
-		_local spec_schema << spec_mime_type[:|schema|]
-		_if spec_schema.includes_key?(:|$ref|)
+	_local spec_responses << sw:property_list.new_from(spec[:|responses|])
+	_for status_code, spec_response _over spec_responses.sorted_by_key().fast_keys_and_elements()
+	_loop
+		.output_stream.write(sw:character.newline)
+		.output_stream.write("	# ", status_code, sw:character.newline)
+		.output_stream.write("	_if magik_http.status_code = ", status_code, sw:character.newline)
+		.output_stream.write("	_then", sw:character.newline)
+		_if spec_response.includes_key?(:|content|)
 		_then
-			_local ref << spec_schema[:|$ref|]
-			_local schema_name << write_string(_self.package_name, ":", ref.split_by(%/).last.as_snake_case())
-			.output_stream.write("	_return ", schema_name, ".new_from_api(json)", sw:character.newline)
-		_elif spec_schema[:|type|] = "array"
-		_then
-			_local spec_schema_items << spec_schema[:items]
-			_if spec_schema_items.includes_key?(:|$ref|)
+			_local spec_content << spec_response[:|content|]
+			_local spec_mime_type << spec_content[:|application/json|].default(spec_content[:|*/*|])
+			_local spec_schema << spec_mime_type[:|schema|]
+			_if spec_schema.includes_key?(:|$ref|)
 			_then
-				_local ref << spec_schema_items[:|$ref|]
+				_local ref << spec_schema[:|$ref|]
 				_local schema_name << write_string(_self.package_name, ":", ref.split_by(%/).last.as_snake_case())
-				.output_stream.write("	_return json.map(_proc(obj) _return ", schema_name, ".new_from_api(obj) _endproc)", sw:character.newline)
+				.output_stream.write("		_local json << decoder.parse_string(response_body)", sw:character.newline)
+				.output_stream.write("		_return ", schema_name, ".new_from_api(json)", sw:character.newline)
+			_elif spec_schema[:|type|] = "array"
+			_then
+				_local spec_schema_items << spec_schema[:items]
+				_if spec_schema_items.includes_key?(:|$ref|)
+				_then
+					_local ref << spec_schema_items[:|$ref|]
+					_local schema_name << write_string(_self.package_name, ":", ref.split_by(%/).last.as_snake_case())
+					.output_stream.write("		_local json << decoder.parse_string(response_body)", sw:character.newline)
+					.output_stream.write("		_return json.map(_proc(obj) _return ", schema_name, ".new_from_api(obj) _endproc)", sw:character.newline)
+				_else
+					.output_stream.write("		_return _unset", sw:character.newline)
+				_endif
 			_else
-				.output_stream.write("	_return json", sw:character.newline)
+				.output_stream.write("		_return _unset", sw:character.newline)
 			_endif
 		_else
-			.output_stream.write("	_return json", sw:character.newline)
+			.output_stream.write("		_return _unset", sw:character.newline)
 		_endif
-	_else
-		.output_stream.write("	_return json", sw:character.newline)
-	_endif
+		.output_stream.write("	_endif", sw:character.newline)
+	_endloop
 _endmethod
 $
 
