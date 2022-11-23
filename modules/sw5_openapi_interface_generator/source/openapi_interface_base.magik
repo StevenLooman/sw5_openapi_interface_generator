@@ -13,6 +13,14 @@ def_slotted_exemplar(
 $
 
 _pragma(classify_level=advanced, topic={api})
+## @return {sw:char16_vector}
+openapi_interface_base.define_shared_constant(
+	:url_encoded_chars,
+	" !#$%&'()*+,/:;=?@[]",
+	:private)
+$
+
+_pragma(classify_level=advanced, topic={api})
 _abstract _private _method openapi_interface_base.api_base_path
 	## Get API base path. To be overridden by a shared_constant.
 	## @return {sw:char16_vector}
@@ -31,13 +39,15 @@ _private _method openapi_interface_base.build_uri(base_uri, path_params, query_p
 	_for key, value _over path_params.fast_keys_and_elements()
 	_loop
 		_local pattern << write_string("\{", key, "}")
-		uri << sw_regexp.new(pattern).replace_all(uri, value.write_string)
+		_local encoded_value << _self.url_encode(value.write_string)
+		uri << sw_regexp.new(pattern).replace_all(uri, encoded_value)
 	_endloop
 
 	_local query_items << rope.new()
 	_for key, value _over query_params.fast_keys_and_elements()
 	_loop
-		_local query_item << write_string(key, "=", value)
+		_local encoded_value << _self.url_encode(value.write_string)
+		_local query_item << write_string(key, "=", encoded_value)
 		query_items.add(query_item)
 	_endloop
 	_if _not query_items.empty?
@@ -58,6 +68,51 @@ _private _method openapi_interface_base.get_headers(method, uri)
 	_local headers << sw:equality_property_list.new()
 	headers["Accept"] << "application/json"
 	_return headers
+_endmethod
+$
+
+_pragma(classify_level=advanced, topic={api})
+_private _method openapi_interface_base.url_encode(value)
+	## URL Encode a value.
+	## @param {sw:char16_vector} value
+	## @return {sw:char16_vector}
+	_local encoded_value << ""
+	_for chr _over value.fast_elements()
+	_loop
+		_if _self.url_encoded_chars.includes?(chr)
+		_then
+			encoded_value +<< write_string(%%, chr.value.as_hex())
+		_else
+			encoded_value +<< chr
+		_endif
+	_endloop
+	_return encoded_value
+_endmethod
+$
+
+_pragma(classify_level=advanced, topic={api})
+_private _method openapi_interface_base.url_decode(value)
+	## URL Decode a value.
+	## @param {sw:char16_vector} value
+	## @return {sw:char16_vector}
+	_local decoded_value << ""
+	_local index << 1
+	_while index < value.size
+	_loop
+		_local chr << value[index]
+		_if chr _is %%
+		_then
+			# This might crash. It is up to the caller to validate the input.
+			_local chr_hex << value[index + 1] + value[index + 2]
+			_local chr_int << chr_hex.as_radix_integer(16)
+			decoded_value +<< character.from_value(chr_int)
+			index +<< 3
+		_else
+			decoded_value +<< chr
+			index +<< 1
+		_endif
+	_endloop
+	_return decoded_value
 _endmethod
 $
 
